@@ -1,11 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 
+const obstacles = ((numObstacles = 15) => {
+  const obstacles = []
+  for (let i = 0; i < numObstacles; i++) {
+    obstacles.push({
+      lat: Math.random() * 180 - 90, // Latitude from -90 to 90
+      lon: Math.random() * 360 - 180, // Longitude from -180 to 180
+    })
+  }
+  return obstacles
+})()
+
 const toRadians = (degrees: number) => degrees * (Math.PI / 180)
 const gridSize = 600
 
 // Adjust y-coordinate using Mercator projection
+// https://en.wikipedia.org/wiki/Mercator_projection#Alternative_expressions
+// Correct conversion would be using a standard like EPSG:4326 to EPSG:3857
 const mercatorProjection = (latitude: number) => {
-  const clampedLatitude = Math.max(Math.min(latitude, 89.9), -89.9)
+  const clampedLatitude = Math.max(Math.min(latitude, 89.99), -89.99)
   return Math.log(Math.tan(Math.PI / 4 + toRadians(clampedLatitude) / 2))
 }
 
@@ -15,6 +28,7 @@ function App() {
     lon: 0,
     orientation: 'N',
   })
+
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -65,6 +79,20 @@ function App() {
       ctx.lineTo(lineX, gridSize)
       ctx.stroke()
     }
+
+    obstacles.forEach((obstacle) => {
+      const obstacleX = ((obstacle.lon + 180) / 360) * gridSize
+      const obstacleY =
+        (1 -
+          (mercatorProjection(obstacle.lat) - mercatorProjection(-90)) /
+            (mercatorProjection(90) - mercatorProjection(-90))) *
+        gridSize
+
+      ctx.fillStyle = 'blue' // Color for obstacles
+      ctx.beginPath()
+      ctx.arc(obstacleX, obstacleY, 5, 0, 2 * Math.PI) // Draw obstacle
+      ctx.fill()
+    })
   }, [roverPosition])
 
   // Wrap latitude within the poles and longitude globally
@@ -90,23 +118,40 @@ function App() {
   }
 
   const move = (forward = true) => {
-    const moveStep = 10 // Degrees to move at a time
-    // eslint-disable-next-line prefer-const
-    let { lat, lon, orientation } = roverPosition
+    const moveStep = 10
+    const { lat, lon, orientation } = roverPosition
+
+    let proposedLat = lat
+    let proposedLon = lon
 
     if (orientation === 'N') {
-      lat += forward ? moveStep : -moveStep
+      proposedLat += forward ? moveStep : -moveStep
     } else if (orientation === 'S') {
-      lat += forward ? -moveStep : moveStep
+      proposedLat += forward ? -moveStep : moveStep
     } else if (orientation === 'E') {
-      lon += forward ? moveStep : -moveStep
+      proposedLon += forward ? moveStep : -moveStep
     } else if (orientation === 'W') {
-      lon += forward ? -moveStep : moveStep
+      proposedLon += forward ? -moveStep : moveStep
     }
 
-    // Apply wrapping
-    const wrappedCoordinates = wrapCoordinates(lat, lon)
-    setRoverPosition({ ...roverPosition, ...wrappedCoordinates })
+    const wrappedCoordinates = wrapCoordinates(proposedLat, proposedLon)
+
+    // Check for collision
+    if (isCollision(wrappedCoordinates.lat, wrappedCoordinates.lon)) {
+      alert('Collision detected! Rotate rover.')
+    } else {
+      setRoverPosition({ ...roverPosition, ...wrappedCoordinates })
+    }
+  }
+
+  const collisionThreshold = 5
+  function isCollision(newLat: number, newLon: number) {
+    return obstacles.some((obstacle) => {
+      const distance = Math.sqrt(
+        Math.pow(obstacle.lat - newLat, 2) + Math.pow(obstacle.lon - newLon, 2)
+      )
+      return distance < collisionThreshold
+    })
   }
 
   const rotate = (left = true) => {
