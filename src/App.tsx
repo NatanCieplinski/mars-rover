@@ -90,9 +90,36 @@ function App() {
 
       ctx.fillStyle = 'blue' // Color for obstacles
       ctx.beginPath()
-      ctx.arc(obstacleX, obstacleY, 5, 0, 2 * Math.PI) // Draw obstacle
+      ctx.arc(obstacleX, obstacleY, 5, 0, 2 * Math.PI)
       ctx.fill()
     })
+  }, [roverPosition])
+
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'f':
+          move(true)
+          break
+        case 'b':
+          move(false)
+          break
+        case 'r':
+          rotate(false)
+          break
+        case 'l':
+          rotate(true)
+          break
+        default:
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+    }
   }, [roverPosition])
 
   // Wrap latitude within the poles and longitude globally
@@ -107,7 +134,7 @@ function App() {
       wrappedLon = 360 + wrappedLon
     }
 
-    // Restrict latitude to stay between -90 and +90, reflect at poles
+    // Wrap longitude from -90 to 90
     if (wrappedLat > 90) {
       wrappedLat = -180 + wrappedLat
     } else if (wrappedLat < -90) {
@@ -144,7 +171,7 @@ function App() {
     }
   }
 
-  const collisionThreshold = 5
+  const collisionThreshold = 8
   function isCollision(newLat: number, newLon: number) {
     return obstacles.some((obstacle) => {
       const distance = Math.sqrt(
@@ -175,12 +202,12 @@ function App() {
         height={gridSize}
         style={{ border: '1px solid black' }}
       />
-      <div>
+      {/* <div>
         <button onClick={() => move(true)}>Move Forward</button>
         <button onClick={() => move(false)}>Move Backward</button>
         <button onClick={() => rotate(true)}>Rotate Left</button>
         <button onClick={() => rotate(false)}>Rotate Right</button>
-      </div>
+      </div> */}
       <div>
         Coordinates: Latitude: {roverPosition.lat.toFixed(2)}, Longitude:{' '}
         {roverPosition.lon.toFixed(2)}, Orientation: {roverPosition.orientation}
